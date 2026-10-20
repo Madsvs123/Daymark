@@ -138,6 +138,7 @@ Tag lines count an entry once for each of its tags. Project totals and the week 
 | `daymark pomodoro done` | Clear the break |
 | `daymark log PROJECT --start TIME (--end TIME \| --duration DURATION) [--note TEXT] [--tag TAG]` | Record a finished block |
 | `daymark edit ID [--project NAME] [--note TEXT] [--start TIME] [--end TIME]` | Change a saved entry |
+| `daymark delete ID` | Delete a finished entry |
 | `daymark tag add ID TAG [TAG ...]` | Attach tags |
 | `daymark tag remove ID TAG [TAG ...]` | Detach tags |
 | `daymark report day [--date DATE]` | Entries and a total for one date |

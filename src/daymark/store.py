@@ -473,6 +473,17 @@ class Daymark:
                 self._conn.execute("DELETE FROM pomodoro WHERE entry_id = ?", (entry_id,))
         return self.get_entry(entry_id)
 
+    def delete_entry(self, entry_id: int) -> Entry:
+        entry = self.get_entry(entry_id)
+        if entry.ended_at is None:
+            raise DaymarkError(
+                f"Entry {entry_id} is the running timer. "
+                "Use `daymark stop --discard` to drop it."
+            )
+        with self._conn:
+            self._conn.execute("DELETE FROM entries WHERE id = ?", (entry_id,))
+        return entry
+
     def add_tags(self, entry_id: int, tags: list[str]) -> Entry:
         self.get_entry(entry_id)
         clean = normalize_tags(tags)

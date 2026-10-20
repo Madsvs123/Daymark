@@ -127,6 +127,9 @@ def build_parser() -> argparse.ArgumentParser:
     edit.add_argument("--start", help="New start time")
     edit.add_argument("--end", help="New end time")
 
+    delete = commands.add_parser("delete", help="Delete a finished entry")
+    delete.add_argument("entry_id", type=int, help="Entry id from a report")
+
     tag = commands.add_parser("tag", help="Add or remove tags on an entry")
     tag_commands = tag.add_subparsers(dest="tag_cmd", required=True)
     tag_add = tag_commands.add_parser("add", help="Attach tags")
@@ -206,6 +209,8 @@ def execute(args: argparse.Namespace) -> int:
             return command_log(store, args)
         if args.command == "edit":
             return command_edit(store, args)
+        if args.command == "delete":
+            return command_delete(store, args)
         if args.command == "tag":
             return command_tag(store, args)
         if args.command == "report":
@@ -372,6 +377,12 @@ def command_edit(store: Daymark, args: argparse.Namespace) -> int:
     )
     print(f"Updated entry {entry.id}.")
     print(format_entry(entry))
+    return 0
+
+
+def command_delete(store: Daymark, args: argparse.Namespace) -> int:
+    entry = store.delete_entry(args.entry_id)
+    print(f"Deleted entry {entry.id} ({entry.project}).")
     return 0
 
 
