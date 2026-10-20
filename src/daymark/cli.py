@@ -1,6 +1,7 @@
 """Command-line interface for Daymark."""
 
 import argparse
+import json
 import os
 import sys
 from datetime import timedelta
@@ -95,7 +96,8 @@ def build_parser() -> argparse.ArgumentParser:
         help="Drop the open timer and do not keep an entry",
     )
 
-    commands.add_parser("status", help="Show the running timer")
+    status = commands.add_parser("status", help="Show the running timer")
+    status.add_argument("--json", action="store_true", help="Print the status as JSON")
 
     goal = commands.add_parser("goal", help="Set a daily goal in minutes for your own work")
     goal_commands = goal.add_subparsers(dest="goal_cmd", required=True)
@@ -231,7 +233,7 @@ def execute(args: argparse.Namespace) -> int:
         if args.command == "stop":
             return command_stop(store, args)
         if args.command == "status":
-            return command_status(store)
+            return command_status(store, args)
         if args.command == "goal":
             return command_goal(store, args)
         if args.command == "pomodoro":
@@ -367,7 +369,47 @@ def command_pomodoro_status(store: Daymark) -> int:
     return 0
 
 
-def command_status(store: Daymark) -> int:
+def status_payload(store: Daymark) -> dict[str, object]:
+    running = store.running()
+    goal = store.daily_goal_minutes()
+    today = store.report_day().total_seconds
+    goal_seconds = None if goal is None else goal * 60
+    elapsed = None
+    if running is not None:
+        elapsed = int((utcnow() - running.started_at).total_seconds())
+        if elapsed < 0:
+            elapsed = 0
+    state = store.pomodoro()
+    pomodoro: dict[str, object] | None = None
+    if state is not None:
+        pomodoro = {
+            "phase": state.phase,
+            "planned_seconds": state.planned_seconds,
+            "remaining_seconds": state.remaining_seconds(utcnow()),
+        }
+    return {
+        "running": running is not None,
+        "entry_id": None if running is None else running.id,
+        "project": None if running is None else running.project,
+        "started_at": (
+            None
+            if running is None
+            else running.started_at.strftime("%Y-%m-%dT%H:%M:%S+00:00")
+        ),
+        "elapsed_seconds": elapsed,
+        "note": None if running is None else running.note,
+        "tags": [] if running is None else list(running.tags),
+        "daily_goal_minutes": goal,
+        "today_seconds": today,
+        "goal_met": goal_seconds is not None and today >= goal_seconds,
+        "pomodoro": pomodoro,
+    }
+
+
+def command_status(store: Daymark, args: argparse.Namespace) -> int:
+    if args.json:
+        print(json.dumps(status_payload(store), indent=2, sort_keys=True))
+        return 0
     running = store.running()
     if running is None:
         print("No timer is running.")
