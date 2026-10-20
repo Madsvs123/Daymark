@@ -190,7 +190,7 @@ py -3 -m pip install -e ".[dev]"
 py -3 -m pytest
 ```
 
-The tests use a temporary SQLite file. They cover start/stop duration across separate openings of the database, rejection of a second open timer, week totals by project and tag, and CSV export.
+The tests use a temporary SQLite file. They cover start/stop duration across separate openings of the database, rejection of a second open timer, week totals by project and tag, CSV export, and the later local commands: durations, the daily goal, pomodoro, rename, archive, delete, split, tag rename, the month report, the week sparkline, backup, restore, notes, continue, `status --json`, and doctor.
 
 ## License
 
