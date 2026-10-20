@@ -120,6 +120,30 @@ class Daymark:
             )
             self._conn.commit()
 
+    def backup_to(self, dest: Path | str) -> Path:
+        """Write a consistent copy of this database with SQLite's backup API."""
+        target_path = Path(dest).expanduser()
+        if target_path.exists() and target_path.is_dir():
+            raise DaymarkError(f"{target_path} is a directory.")
+        if target_path.exists():
+            raise DaymarkError(f"{target_path} already exists.")
+        if not target_path.parent.exists():
+            raise DaymarkError(f"Folder does not exist: {target_path.parent}")
+        try:
+            if target_path.resolve() == self.db_path:
+                raise DaymarkError("Choose a different file from the current database.")
+        except OSError as exc:
+            raise DaymarkError(f"Could not use {target_path}: {exc}") from exc
+        connection = sqlite3.connect(target_path)
+        try:
+            self._conn.backup(connection)
+        except sqlite3.Error as exc:
+            connection.close()
+            target_path.unlink(missing_ok=True)
+            raise DaymarkError(f"Could not back up the database: {exc}") from exc
+        connection.close()
+        return target_path.resolve()
+
     def close(self) -> None:
         if self._conn is not None:
             self._conn.close()

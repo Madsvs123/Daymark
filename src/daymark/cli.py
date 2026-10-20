@@ -170,6 +170,9 @@ def build_parser() -> argparse.ArgumentParser:
     csv_export.add_argument("--output", "-o", help="File to write. Omit to print.")
     markdown_export = export_commands.add_parser("markdown", help="Export Markdown")
     markdown_export.add_argument("--output", "-o", help="File to write. Omit to print.")
+
+    backup = commands.add_parser("backup", help="Copy the SQLite database to another file")
+    backup.add_argument("--output", "-o", required=True, help="Backup file to create")
     return parser
 
 
@@ -233,6 +236,8 @@ def execute(args: argparse.Namespace) -> int:
             return command_report(store, args)
         if args.command == "export":
             return command_export(store, args)
+        if args.command == "backup":
+            return command_backup(store, args)
     raise DaymarkError(f"Unknown command '{args.command}'.")
 
 
@@ -471,6 +476,12 @@ def command_export(store: Daymark, args: argparse.Namespace) -> int:
     except OSError as exc:
         raise DaymarkError(f"Could not write {path}: {exc}") from exc
     print(f"Wrote {len(entries)} entries to {path}")
+    return 0
+
+
+def command_backup(store: Daymark, args: argparse.Namespace) -> int:
+    path = store.backup_to(args.output)
+    print(f"Backed up the database to {path}")
     return 0
 
 
