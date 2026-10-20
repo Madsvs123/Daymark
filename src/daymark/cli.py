@@ -1,0 +1,300 @@
+"""Command-line interface for Daymark."""
+
+import argparse
+import os
+import sys
+from pathlib import Path
+
+from daymark import __version__
+from daymark.errors import DaymarkError
+from daymark.render import format_entry, render_csv, render_day, render_markdown, render_project, render_week
+from daymark.store import Daymark, default_db_path
+from daymark.timeutil import format_duration, format_when, parse_user_date, parse_user_time, utcnow
+
+EPILOG = """
+examples:
+  daymark init
+  daymark project add writing
+  daymark start writing --note "chapter 2" --tag draft
+  daymark status
+  daymark stop
+  daymark log writing --start "2026-10-20 08:00" --end "2026-10-20 08:40" --note planning --tag planning
+  daymark report day
+  daymark report week
+  daymark export csv --output week.csv
+""".strip()
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="daymark",
+        description=(
+            "Time your own work. Daymark keeps one running timer and a SQLite "
+            "history on this machine."
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=EPILOG,
+    )
+    parser.add_argument("--db", help="SQLite database path. Overrides DAYMARK_DB.")
+    parser.add_argument("--version", action="version", version=f"daymark {__version__}")
+    commands = parser.add_subparsers(dest="command", required=True, metavar="command")
+
+    init = commands.add_parser("init", help="Create the local database")
+    init.add_argument("--here", action="store_true", help="Create ./daymark.db in this folder")
+    init.add_argument("--path", help="Create the database at this file path")
+
+    project = commands.add_parser("project", help="Manage your projects")
+    project_commands = project.add_subparsers(dest="project_cmd", required=True)
+    add = project_commands.add_parser("add", help="Add a project")
+    add.add_argument("name", help="Project name")
+    project_commands.add_parser("list", help="List projects")
+
+    start = commands.add_parser("start", help="Start the timer")
+    start.add_argument("project", help="Project to time")
+    start.add_argument("--note", default="", help="What you are doing")
+    start.add_argument("--tag", action="append", dest="tags", help="Tag. Repeat for several.")
+
+    stop = commands.add_parser("stop", help="Stop the running timer")
+    stop.add_argument("--note", help="Replace the note on the open entry")
+    stop.add_argument(
+        "--discard",
+        action="store_true",
+        help="Drop the open timer and do not keep an entry",
+    )
+
+    commands.add_parser("status", help="Show the running timer")
+
+    log = commands.add_parser("log", help="Record a manual entry")
+    log.add_argument("project", help="Project the time belongs to")
+    log.add_argument("--start", required=True, help="Start time, YYYY-MM-DD HH:MM")
+    log.add_argument("--end", required=True, help="End time, YYYY-MM-DD HH:MM")
+    log.add_argument("--note", default="", help="What the time was for")
+    log.add_argument("--tag", action="append", dest="tags", help="Tag. Repeat for several.")
+
+    edit = commands.add_parser("edit", help="Change a saved entry")
+    edit.add_argument("entry_id", type=int, help="Entry id from a report")
+    edit.add_argument("--project", help="Move the entry to this project")
+    edit.add_argument("--note", help="Replace the note")
+    edit.add_argument("--start", help="New start time")
+    edit.add_argument("--end", help="New end time")
+
+    tag = commands.add_parser("tag", help="Add or remove tags on an entry")
+    tag_commands = tag.add_subparsers(dest="tag_cmd", required=True)
+    tag_add = tag_commands.add_parser("add", help="Attach tags")
+    tag_add.add_argument("entry_id", type=int)
+    tag_add.add_argument("tags", nargs="+")
+    tag_remove = tag_commands.add_parser("remove", help="Detach tags")
+    tag_remove.add_argument("entry_id", type=int)
+    tag_remove.add_argument("tags", nargs="+")
+
+    report = commands.add_parser("report", help="Summarize tracked time")
+    report_commands = report.add_subparsers(dest="report_cmd", required=True)
+    day = report_commands.add_parser("day", help="Entries that started on one date")
+    day.add_argument("--date", help="YYYY-MM-DD. Defaults to today.")
+    week = report_commands.add_parser("week", help="Group a Monday-Sunday week by project and tag")
+    week.add_argument("--date", help="Any date in the week. Defaults to today.")
+    project_report = report_commands.add_parser("project", help="Entries for one project")
+    project_report.add_argument("name")
+    project_report.add_argument("--from", dest="from_date", help="First date to include")
+    project_report.add_argument("--to", dest="to_date", help="Last date to include")
+
+    export = commands.add_parser("export", help="Write entries to a file or stdout")
+    export_commands = export.add_subparsers(dest="export_cmd", required=True)
+    csv_export = export_commands.add_parser("csv", help="Export CSV")
+    csv_export.add_argument("--output", "-o", help="File to write. Omit to print.")
+    markdown_export = export_commands.add_parser("markdown", help="Export Markdown")
+    markdown_export.add_argument("--output", "-o", help="File to write. Omit to print.")
+    return parser
+
+
+def database_path(args: argparse.Namespace) -> Path:
+    if args.db:
+        return Path(args.db).expanduser()
+    if args.command == "init" and args.path and args.here:
+        raise DaymarkError("Choose either --path or --here.")
+    if args.command == "init" and args.path:
+        return Path(args.path).expanduser()
+    if args.command == "init" and args.here:
+        return Path.cwd() / "daymark.db"
+    env = os.environ.get("DAYMARK_DB")
+    if env:
+        return Path(env).expanduser()
+    if args.command == "init":
+        return default_db_path()
+    local = Path.cwd() / "daymark.db"
+    if local.exists():
+        return local
+    home = default_db_path()
+    if home.exists():
+        return home
+    raise DaymarkError(
+        "No Daymark database yet. Run `daymark init` to keep it in your user folder, "
+        "or `daymark init --here` to keep it in this folder."
+    )
+
+
+def execute(args: argparse.Namespace) -> int:
+    path = database_path(args)
+    if args.command != "init" and not path.exists():
+        raise DaymarkError(f"No database at {path}. Run `daymark init` first.")
+    with Daymark(path) as store:
+        if args.command == "init":
+            print(f"Database ready at {store.db_path}")
+            return 0
+        if args.command == "project":
+            return command_project(store, args)
+        if args.command == "start":
+            return command_start(store, args)
+        if args.command == "stop":
+            return command_stop(store, args)
+        if args.command == "status":
+            return command_status(store)
+        if args.command == "log":
+            return command_log(store, args)
+        if args.command == "edit":
+            return command_edit(store, args)
+        if args.command == "tag":
+            return command_tag(store, args)
+        if args.command == "report":
+            return command_report(store, args)
+        if args.command == "export":
+            return command_export(store, args)
+    raise DaymarkError(f"Unknown command '{args.command}'.")
+
+
+def command_project(store: Daymark, args: argparse.Namespace) -> int:
+    if args.project_cmd == "add":
+        project = store.add_project(args.name)
+        print(f"Added project '{project.name}'.")
+        return 0
+    projects = store.list_projects()
+    if not projects:
+        print("No projects yet.")
+        return 0
+    for project in projects:
+        print(project.name)
+    return 0
+
+
+def command_start(store: Daymark, args: argparse.Namespace) -> int:
+    entry = store.start(args.project, note=args.note, tags=args.tags)
+    print(f"Started {entry.project} at {format_when(entry.started_at)}.")
+    print(format_entry(entry))
+    return 0
+
+
+def command_stop(store: Daymark, args: argparse.Namespace) -> int:
+    if args.discard and args.note is not None:
+        raise DaymarkError("Use either --note or --discard.")
+    entry = store.stop(note=args.note, discard=args.discard)
+    if entry is None:
+        print("Discarded the running timer.")
+        return 0
+    print(f"Stopped {entry.project}: {format_duration(entry.duration_seconds or 0)}")
+    print(format_entry(entry))
+    return 0
+
+
+def command_status(store: Daymark) -> int:
+    running = store.running()
+    if running is None:
+        print("No timer is running.")
+        return 0
+    elapsed = int((utcnow() - running.started_at).total_seconds())
+    if elapsed < 0:
+        elapsed = 0
+    print(f"Running: {running.project}")
+    print(f"Entry: {running.id}")
+    print(f"Started: {format_when(running.started_at)}")
+    print(f"Elapsed: {format_duration(elapsed)}")
+    print(f"Note: {running.note or '(none)'}")
+    print(f"Tags: {', '.join(running.tags) if running.tags else '(none)'}")
+    return 0
+
+
+def command_log(store: Daymark, args: argparse.Namespace) -> int:
+    entry = store.log(
+        args.project,
+        parse_user_time(args.start),
+        parse_user_time(args.end),
+        note=args.note,
+        tags=args.tags,
+    )
+    print(f"Logged {entry.project}: {format_duration(entry.duration_seconds or 0)}")
+    print(format_entry(entry))
+    return 0
+
+
+def command_edit(store: Daymark, args: argparse.Namespace) -> int:
+    entry = store.edit(
+        args.entry_id,
+        project=args.project,
+        note=args.note,
+        started_at=parse_user_time(args.start) if args.start else None,
+        ended_at=parse_user_time(args.end) if args.end else None,
+    )
+    print(f"Updated entry {entry.id}.")
+    print(format_entry(entry))
+    return 0
+
+
+def command_tag(store: Daymark, args: argparse.Namespace) -> int:
+    if args.tag_cmd == "add":
+        entry = store.add_tags(args.entry_id, args.tags)
+    else:
+        entry = store.remove_tags(args.entry_id, args.tags)
+    labels = ", ".join(entry.tags) if entry.tags else "(none)"
+    print(f"Entry {entry.id} tags: {labels}")
+    return 0
+
+
+def command_report(store: Daymark, args: argparse.Namespace) -> int:
+    if args.report_cmd == "day":
+        day = parse_user_date(args.date) if args.date else None
+        print(render_day(store.report_day(day)), end="")
+        return 0
+    if args.report_cmd == "week":
+        day = parse_user_date(args.date) if args.date else None
+        print(render_week(store.report_week(day)), end="")
+        return 0
+    start = parse_user_date(args.from_date) if args.from_date else None
+    end = parse_user_date(args.to_date) if args.to_date else None
+    print(render_project(store.report_project(args.name, start=start, end=end)), end="")
+    return 0
+
+
+def command_export(store: Daymark, args: argparse.Namespace) -> int:
+    entries = store.entries()
+    if args.export_cmd == "csv":
+        text = render_csv(entries)
+    else:
+        text = render_markdown(entries)
+    if not args.output:
+        print(text, end="")
+        return 0
+    path = Path(args.output).expanduser()
+    if path.exists() and path.is_dir():
+        raise DaymarkError(f"{path} is a directory.")
+    if not path.parent.exists():
+        raise DaymarkError(f"Folder does not exist: {path.parent}")
+    try:
+        with path.open("w", encoding="utf-8", newline="\n") as handle:
+            handle.write(text)
+    except OSError as exc:
+        raise DaymarkError(f"Could not write {path}: {exc}") from exc
+    print(f"Wrote {len(entries)} entries to {path}")
+    return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    try:
+        return execute(args)
+    except DaymarkError as exc:
+        print(f"daymark: {exc}", file=sys.stderr)
+        return 1
+
+
+def console_main() -> None:
+    sys.exit(main())
