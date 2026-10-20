@@ -124,7 +124,8 @@ Tag lines count an entry once for each of its tags. Project totals and the week 
 | `daymark project add NAME` | Add a project |
 | `daymark project rename OLD NEW` | Rename a project without moving its history |
 | `daymark project archive NAME` | Hide a project from start; keep its entries in reports |
-| `daymark project list` | List projects you can start |
+| `daymark project unarchive NAME` | Make an archived project startable again |
+| `daymark project list [--all]` | List projects you can start, or every project |
 | `daymark start PROJECT [--note TEXT] [--tag TAG]` | Start the single running timer |
 | `daymark stop [--note TEXT] [--discard]` | Stop the timer, or drop it |
 | `daymark status` | Show the open timer and how long it has run |

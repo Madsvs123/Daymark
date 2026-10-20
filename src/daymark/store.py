@@ -201,6 +201,14 @@ class Daymark:
             self._conn.execute("UPDATE projects SET archived = 1 WHERE id = ?", (row["id"],))
         return self._project(int(row["id"]))
 
+    def unarchive_project(self, name: str) -> Project:
+        row = self._require_project(name)
+        if not row["archived"]:
+            raise DaymarkError(f"Project '{row['name']}' is not archived.")
+        with self._conn:
+            self._conn.execute("UPDATE projects SET archived = 0 WHERE id = ?", (row["id"],))
+        return self._project(int(row["id"]))
+
     def list_projects(self, *, include_archived: bool = False) -> list[Project]:
         where = "" if include_archived else "WHERE archived = 0"
         rows = self._conn.execute(

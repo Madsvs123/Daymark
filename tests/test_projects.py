@@ -55,6 +55,30 @@ def test_archive_hides_project_from_start_and_keeps_history(app):
     assert report.entries[0].note == "chapter"
 
 
+def test_unarchive_makes_start_work_again(app):
+    app.add_project("writing")
+    app.archive_project("writing")
+    restored = app.unarchive_project("writing")
+    assert restored.archived is False
+    entry = app.start("writing", at=utc(2026, 10, 20, 12, 0))
+    assert entry.project == "writing"
+    assert entry.ended_at is None
+
+
+def test_unarchive_cli(tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv("DAYMARK_DB", str(tmp_path / "daymark.db"))
+    assert main(["init"]) == 0
+    assert main(["project", "add", "writing"]) == 0
+    assert main(["project", "archive", "writing"]) == 0
+    capsys.readouterr()
+    assert main(["project", "list", "--all"]) == 0
+    assert "writing [archived]" in capsys.readouterr().out
+    assert main(["project", "unarchive", "writing"]) == 0
+    capsys.readouterr()
+    assert main(["project", "list"]) == 0
+    assert capsys.readouterr().out.strip() == "writing"
+
+
 def test_archive_cli(tmp_path, monkeypatch, capsys):
     monkeypatch.setenv("DAYMARK_DB", str(tmp_path / "daymark.db"))
     assert main(["init"]) == 0

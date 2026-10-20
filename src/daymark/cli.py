@@ -72,7 +72,10 @@ def build_parser() -> argparse.ArgumentParser:
         help="Hide a project from start while keeping its history",
     )
     archive.add_argument("name", help="Project name")
-    project_commands.add_parser("list", help="List projects")
+    unarchive = project_commands.add_parser("unarchive", help="Make an archived project startable again")
+    unarchive.add_argument("name", help="Project name")
+    listing = project_commands.add_parser("list", help="List projects")
+    listing.add_argument("--all", action="store_true", help="Include archived projects")
 
     start = commands.add_parser("start", help="Start the timer")
     start.add_argument("project", help="Project to time")
@@ -225,12 +228,17 @@ def command_project(store: Daymark, args: argparse.Namespace) -> int:
         project = store.archive_project(args.name)
         print(f"Archived '{project.name}'. It stays in reports and is hidden from start.")
         return 0
-    projects = store.list_projects()
+    if args.project_cmd == "unarchive":
+        project = store.unarchive_project(args.name)
+        print(f"Unarchived '{project.name}'.")
+        return 0
+    projects = store.list_projects(include_archived=args.all)
     if not projects:
         print("No projects yet.")
         return 0
     for project in projects:
-        print(project.name)
+        suffix = " [archived]" if project.archived else ""
+        print(f"{project.name}{suffix}")
     return 0
 
 
