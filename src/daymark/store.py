@@ -1,5 +1,6 @@
 """SQLite storage for one operator's projects, tags, and timer."""
 
+import os
 import sqlite3
 from datetime import date, datetime, timedelta, tzinfo
 from pathlib import Path
@@ -143,6 +144,71 @@ class Daymark:
             raise DaymarkError(f"Could not back up the database: {exc}") from exc
         connection.close()
         return target_path.resolve()
+
+    def restore_from(self, source: Path | str) -> Path:
+        """Replace this database with a Daymark backup."""
+        source_path = Path(source).expanduser()
+        if not source_path.is_file():
+            raise DaymarkError(f"No backup file at {source_path}.")
+        try:
+            source_resolved = source_path.resolve()
+        except OSError as exc:
+            raise DaymarkError(f"Could not read {source_path}: {exc}") from exc
+        if source_resolved == self.db_path:
+            raise DaymarkError("Choose a different file from the current database.")
+        self._validate_backup(source_resolved)
+        temp = self.db_path.with_name(self.db_path.name + ".restore")
+        if temp.exists():
+            raise DaymarkError(f"Remove the leftover file {temp} and try again.")
+        try:
+            src = sqlite3.connect(source_resolved)
+            dst = sqlite3.connect(temp)
+            try:
+                src.backup(dst)
+            finally:
+                dst.close()
+                src.close()
+        except sqlite3.Error as exc:
+            temp.unlink(missing_ok=True)
+            raise DaymarkError(f"Could not read the backup: {exc}") from exc
+        self.close()
+        try:
+            os.replace(temp, self.db_path)
+        except OSError as exc:
+            self._reopen()
+            temp.unlink(missing_ok=True)
+            raise DaymarkError(f"Could not replace the database: {exc}") from exc
+        self._reopen()
+        return self.db_path
+
+    def _validate_backup(self, source: Path) -> None:
+        try:
+            src = sqlite3.connect(f"{source.as_uri()}?mode=ro", uri=True)
+        except sqlite3.Error as exc:
+            raise DaymarkError(f"{source} is not a Daymark database.") from exc
+        try:
+            row = src.execute(
+                "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'projects'"
+            ).fetchone()
+            if row is None:
+                raise DaymarkError(f"{source} is not a Daymark database.")
+            check = src.execute("PRAGMA integrity_check").fetchone()
+            if check is None or check[0] != "ok":
+                raise DaymarkError(f"{source} failed the SQLite integrity check.")
+        except DaymarkError:
+            raise
+        except sqlite3.Error as exc:
+            raise DaymarkError(f"{source} is not a Daymark database.") from exc
+        finally:
+            src.close()
+
+    def _reopen(self) -> None:
+        self._conn = sqlite3.connect(self.db_path)
+        self._conn.row_factory = sqlite3.Row
+        self._conn.execute("PRAGMA foreign_keys = ON")
+        self._conn.executescript(SCHEMA)
+        self._conn.execute("PRAGMA foreign_keys = ON")
+        self._migrate()
 
     def close(self) -> None:
         if self._conn is not None:

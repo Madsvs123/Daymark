@@ -173,6 +173,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     backup = commands.add_parser("backup", help="Copy the SQLite database to another file")
     backup.add_argument("--output", "-o", required=True, help="Backup file to create")
+
+    restore = commands.add_parser("restore", help="Replace the SQLite database from a backup")
+    restore.add_argument("--from", dest="source", required=True, help="Backup file to restore")
     return parser
 
 
@@ -238,6 +241,8 @@ def execute(args: argparse.Namespace) -> int:
             return command_export(store, args)
         if args.command == "backup":
             return command_backup(store, args)
+        if args.command == "restore":
+            return command_restore(store, args)
     raise DaymarkError(f"Unknown command '{args.command}'.")
 
 
@@ -482,6 +487,12 @@ def command_export(store: Daymark, args: argparse.Namespace) -> int:
 def command_backup(store: Daymark, args: argparse.Namespace) -> int:
     path = store.backup_to(args.output)
     print(f"Backed up the database to {path}")
+    return 0
+
+
+def command_restore(store: Daymark, args: argparse.Namespace) -> int:
+    path = store.restore_from(args.source)
+    print(f"Restored the database at {path}")
     return 0
 
 

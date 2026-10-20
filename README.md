@@ -37,7 +37,7 @@ Later commands look for a database in this order:
 3. `.\daymark.db`, when that file is in the current folder
 4. `%USERPROFILE%\.daymark\daymark.db`
 
-`--db` and `DAYMARK_DB` point at a file. Create it with `daymark init` before starting a timer. `daymark backup -o FILE` writes a consistent copy. The command refuses to overwrite a file that is already there.
+`--db` and `DAYMARK_DB` point at a file. Create it with `daymark init` before starting a timer. `daymark backup -o FILE` writes a consistent copy and refuses to overwrite a file that is already there. `daymark restore --from FILE` replaces the current database with that copy. The source has to be a Daymark SQLite file.
 
 ## A normal day
 
@@ -151,6 +151,7 @@ Tag lines count an entry once for each of its tags. Project totals and the week 
 | `daymark export csv [-o FILE]` | CSV of every entry |
 | `daymark export markdown [-o FILE]` | Markdown summary and table |
 | `daymark backup -o FILE` | Copy the SQLite file to a new path |
+| `daymark restore --from FILE` | Replace the current database with a backup |
 
 `--duration` accepts `1h20m`, `90m`, `2h`, `45s`, and combinations such as `1h20m30s`. Spaces are ignored. Use it instead of `--end`.
 

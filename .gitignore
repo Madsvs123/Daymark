@@ -16,4 +16,5 @@ venv/
 *.db
 *.sqlite
 *.sqlite3
+*.restore
 .daymark/
