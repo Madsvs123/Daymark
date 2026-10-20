@@ -77,6 +77,25 @@ def parse_duration(text: str) -> int:
     return total
 
 
+def parse_goal_minutes(text: str) -> int:
+    """Minutes for a daily goal: a whole number, or a duration such as 1h30m."""
+    raw = text.strip()
+    if not raw:
+        raise DaymarkError("A daily goal is required.")
+    if raw.isdigit():
+        minutes = int(raw)
+    else:
+        seconds = parse_duration(raw)
+        if seconds % 60 != 0:
+            raise DaymarkError("A daily goal is a whole number of minutes, such as 90 or 1h30m.")
+        minutes = seconds // 60
+    if minutes < 1:
+        raise DaymarkError("A daily goal must be at least 1 minute.")
+    if minutes > 24 * 60:
+        raise DaymarkError("A daily goal must be at most 1440 minutes.")
+    return minutes
+
+
 def parse_user_date(text: str) -> date:
     try:
         return date.fromisoformat(text.strip())

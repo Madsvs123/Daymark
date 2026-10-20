@@ -66,6 +66,11 @@ CREATE TABLE IF NOT EXISTS open_timer (
 
 CREATE INDEX IF NOT EXISTS entries_started_at ON entries(started_at);
 CREATE INDEX IF NOT EXISTS entries_project ON entries(project_id);
+
+CREATE TABLE IF NOT EXISTS settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
 """
 
 
@@ -101,6 +106,33 @@ class Daymark:
 
     def __exit__(self, *exc: object) -> None:
         self.close()
+
+    def set_daily_goal(self, minutes: int) -> int:
+        if minutes < 1:
+            raise DaymarkError("A daily goal must be at least 1 minute.")
+        if minutes > 24 * 60:
+            raise DaymarkError("A daily goal must be at most 1440 minutes.")
+        with self._conn:
+            self._conn.execute(
+                """
+                INSERT INTO settings (key, value) VALUES ('daily_goal_minutes', ?)
+                ON CONFLICT(key) DO UPDATE SET value = excluded.value
+                """,
+                (str(minutes),),
+            )
+        return minutes
+
+    def daily_goal_minutes(self) -> int | None:
+        row = self._conn.execute(
+            "SELECT value FROM settings WHERE key = 'daily_goal_minutes'"
+        ).fetchone()
+        if row is None:
+            return None
+        return int(row["value"])
+
+    def clear_daily_goal(self) -> None:
+        with self._conn:
+            self._conn.execute("DELETE FROM settings WHERE key = 'daily_goal_minutes'")
 
     def add_project(self, name: str) -> Project:
         cleaned = normalize_project_name(name)

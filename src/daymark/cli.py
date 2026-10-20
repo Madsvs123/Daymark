@@ -14,6 +14,7 @@ from daymark.timeutil import (
     format_duration,
     format_when,
     parse_duration,
+    parse_goal_minutes,
     parse_user_date,
     parse_user_time,
     utcnow,
@@ -71,6 +72,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     commands.add_parser("status", help="Show the running timer")
+
+    goal = commands.add_parser("goal", help="Set a daily goal in minutes for your own work")
+    goal_commands = goal.add_subparsers(dest="goal_cmd", required=True)
+    goal_set = goal_commands.add_parser("set", help="Set today's target, such as 90 or 1h30m")
+    goal_set.add_argument("minutes", help="Whole minutes, or a duration such as 1h30m")
+    goal_commands.add_parser("show", help="Show the daily goal")
+    goal_commands.add_parser("clear", help="Remove the daily goal")
 
     log = commands.add_parser("log", help="Record a manual entry")
     log.add_argument("project", help="Project the time belongs to")
@@ -158,6 +166,8 @@ def execute(args: argparse.Namespace) -> int:
             return command_stop(store, args)
         if args.command == "status":
             return command_status(store)
+        if args.command == "goal":
+            return command_goal(store, args)
         if args.command == "log":
             return command_log(store, args)
         if args.command == "edit":
@@ -201,6 +211,23 @@ def command_stop(store: Daymark, args: argparse.Namespace) -> int:
         return 0
     print(f"Stopped {entry.project}: {format_duration(entry.duration_seconds or 0)}")
     print(format_entry(entry))
+    return 0
+
+
+def command_goal(store: Daymark, args: argparse.Namespace) -> int:
+    if args.goal_cmd == "set":
+        minutes = store.set_daily_goal(parse_goal_minutes(args.minutes))
+        print(f"Daily goal set to {format_duration(minutes * 60)}.")
+        return 0
+    if args.goal_cmd == "clear":
+        store.clear_daily_goal()
+        print("Daily goal cleared.")
+        return 0
+    minutes = store.daily_goal_minutes()
+    if minutes is None:
+        print("No daily goal is set.")
+        return 0
+    print(f"Daily goal: {format_duration(minutes * 60)}.")
     return 0
 
 

@@ -125,6 +125,9 @@ Tag lines count an entry once for each of its tags. Project totals and the week 
 | `daymark start PROJECT [--note TEXT] [--tag TAG]` | Start the single running timer |
 | `daymark stop [--note TEXT] [--discard]` | Stop the timer, or drop it |
 | `daymark status` | Show the open timer and how long it has run |
+| `daymark goal set MINUTES` | Set a daily goal, as minutes or a duration such as `1h30m` |
+| `daymark goal show` | Show the daily goal |
+| `daymark goal clear` | Remove the daily goal |
 | `daymark log PROJECT --start TIME (--end TIME \| --duration DURATION) [--note TEXT] [--tag TAG]` | Record a finished block |
 | `daymark edit ID [--project NAME] [--note TEXT] [--start TIME] [--end TIME]` | Change a saved entry |
 | `daymark tag add ID TAG [TAG ...]` | Attach tags |
@@ -136,6 +139,14 @@ Tag lines count an entry once for each of its tags. Project totals and the week 
 | `daymark export markdown [-o FILE]` | Markdown summary and table |
 
 `--duration` accepts `1h20m`, `90m`, `2h`, `45s`, and combinations such as `1h20m30s`. Spaces are ignored. Use it instead of `--end`.
+
+A daily goal is a minute target for your own completed time. It lives in the same SQLite file:
+
+```powershell
+daymark goal set 90
+daymark goal set 1h30m
+daymark goal show
+```
 
 Only one timer can run at a time. Starting another project while one is open is refused until you stop or discard the open timer. A manual entry that crosses an existing block is refused too. Adjacent blocks are fine: one may end at the same minute the next one starts.
 
