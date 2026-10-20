@@ -560,6 +560,46 @@ class Daymark:
             self._touch(entry_id)
         return self.get_entry(entry_id)
 
+    def rename_tag(self, old: str, new: str) -> tuple[str, int]:
+        """Rename a tag everywhere it is used. Returns the new name and entry count."""
+        old_name = normalize_tags([old])[0]
+        new_name = normalize_tags([new])[0]
+        row = self._conn.execute(
+            "SELECT id FROM tags WHERE name = ? COLLATE NOCASE",
+            (old_name,),
+        ).fetchone()
+        if row is None:
+            raise DaymarkError(f"No tag named '{old_name}'.")
+        count = int(
+            self._conn.execute(
+                "SELECT COUNT(*) AS n FROM entry_tags WHERE tag_id = ?",
+                (row["id"],),
+            ).fetchone()["n"]
+        )
+        if old_name == new_name:
+            return new_name, count
+        target = self._conn.execute(
+            "SELECT id FROM tags WHERE name = ? COLLATE NOCASE",
+            (new_name,),
+        ).fetchone()
+        with self._conn:
+            if target is None:
+                self._conn.execute(
+                    "UPDATE tags SET name = ? WHERE id = ?",
+                    (new_name, row["id"]),
+                )
+            else:
+                self._conn.execute(
+                    """
+                    INSERT OR IGNORE INTO entry_tags (entry_id, tag_id)
+                    SELECT entry_id, ? FROM entry_tags WHERE tag_id = ?
+                    """,
+                    (target["id"], row["id"]),
+                )
+                self._conn.execute("DELETE FROM entry_tags WHERE tag_id = ?", (row["id"],))
+                self._conn.execute("DELETE FROM tags WHERE id = ?", (row["id"],))
+        return new_name, count
+
     def get_entry(self, entry_id: int) -> Entry:
         rows = self._fetch_entries("WHERE e.id = ?", (entry_id,))
         if not rows:

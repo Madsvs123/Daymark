@@ -146,6 +146,9 @@ def build_parser() -> argparse.ArgumentParser:
     tag_remove = tag_commands.add_parser("remove", help="Detach tags")
     tag_remove.add_argument("entry_id", type=int)
     tag_remove.add_argument("tags", nargs="+")
+    tag_rename = tag_commands.add_parser("rename", help="Rename a tag on every entry that uses it")
+    tag_rename.add_argument("old", help="Current tag")
+    tag_rename.add_argument("new", help="New tag")
 
     report = commands.add_parser("report", help="Summarize tracked time")
     report_commands = report.add_subparsers(dest="report_cmd", required=True)
@@ -405,6 +408,11 @@ def command_delete(store: Daymark, args: argparse.Namespace) -> int:
 
 
 def command_tag(store: Daymark, args: argparse.Namespace) -> int:
+    if args.tag_cmd == "rename":
+        name, count = store.rename_tag(args.old, args.new)
+        noun = "entry" if count == 1 else "entries"
+        print(f"Renamed tag to '{name}' on {count} {noun}.")
+        return 0
     if args.tag_cmd == "add":
         entry = store.add_tags(args.entry_id, args.tags)
     else:
