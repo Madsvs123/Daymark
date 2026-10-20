@@ -10,6 +10,7 @@ from daymark.errors import (
     InvalidInterval,
     NoRunningTimer,
     OverlappingEntry,
+    ProjectArchived,
     ProjectExists,
     ProjectNotFound,
     TimerAlreadyRunning,
@@ -33,7 +34,8 @@ SCHEMA = """
 CREATE TABLE IF NOT EXISTS projects (
     id INTEGER PRIMARY KEY,
     name TEXT NOT NULL COLLATE NOCASE UNIQUE,
-    created_at TEXT NOT NULL
+    created_at TEXT NOT NULL,
+    archived INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS entries (
@@ -107,6 +109,15 @@ class Daymark:
         self._conn.execute("PRAGMA foreign_keys = ON")
         self._conn.executescript(SCHEMA)
         self._conn.execute("PRAGMA foreign_keys = ON")
+        self._migrate()
+
+    def _migrate(self) -> None:
+        columns = {row[1] for row in self._conn.execute("PRAGMA table_info(projects)")}
+        if "archived" not in columns:
+            self._conn.execute(
+                "ALTER TABLE projects ADD COLUMN archived INTEGER NOT NULL DEFAULT 0"
+            )
+            self._conn.commit()
 
     def close(self) -> None:
         if self._conn is not None:
@@ -179,12 +190,34 @@ class Daymark:
             raise ProjectExists(f"Project '{cleaned}' already exists.") from exc
         return self._project(int(row["id"]))
 
-    def list_projects(self) -> list[Project]:
+    def archive_project(self, name: str) -> Project:
+        row = self._require_project(name)
+        if row["archived"]:
+            raise DaymarkError(f"Project '{row['name']}' is already archived.")
+        running = self.running()
+        if running is not None and running.project.lower() == row["name"].lower():
+            raise DaymarkError(f"Stop the running timer before archiving '{row['name']}'.")
+        with self._conn:
+            self._conn.execute("UPDATE projects SET archived = 1 WHERE id = ?", (row["id"],))
+        return self._project(int(row["id"]))
+
+    def list_projects(self, *, include_archived: bool = False) -> list[Project]:
+        where = "" if include_archived else "WHERE archived = 0"
         rows = self._conn.execute(
-            "SELECT id, name, created_at FROM projects ORDER BY name COLLATE NOCASE"
+            f"""
+            SELECT id, name, created_at, archived
+            FROM projects
+            {where}
+            ORDER BY name COLLATE NOCASE
+            """
         ).fetchall()
         return [
-            Project(id=row["id"], name=row["name"], created_at=parse_stored(row["created_at"]))
+            Project(
+                id=row["id"],
+                name=row["name"],
+                created_at=parse_stored(row["created_at"]),
+                archived=bool(row["archived"]),
+            )
             for row in rows
         ]
 
@@ -197,6 +230,11 @@ class Daymark:
         at: datetime | None = None,
     ) -> Entry:
         row = self._require_project(project)
+        if row["archived"]:
+            raise ProjectArchived(
+                f"Project '{row['name']}' is archived, so it is not available to start. "
+                "Its earlier entries stay in your history."
+            )
         running = self.running()
         if running is not None:
             raise TimerAlreadyRunning(
@@ -583,17 +621,22 @@ class Daymark:
 
     def _project(self, project_id: int) -> Project:
         row = self._conn.execute(
-            "SELECT id, name, created_at FROM projects WHERE id = ?",
+            "SELECT id, name, created_at, archived FROM projects WHERE id = ?",
             (project_id,),
         ).fetchone()
         if row is None:
             raise ProjectNotFound(f"No project with id {project_id}.")
-        return Project(id=row["id"], name=row["name"], created_at=parse_stored(row["created_at"]))
+        return Project(
+            id=row["id"],
+            name=row["name"],
+            created_at=parse_stored(row["created_at"]),
+            archived=bool(row["archived"]),
+        )
 
     def _require_project(self, name: str) -> sqlite3.Row:
         cleaned = normalize_project_name(name)
         row = self._conn.execute(
-            "SELECT id, name, created_at FROM projects WHERE name = ? COLLATE NOCASE",
+            "SELECT id, name, created_at, archived FROM projects WHERE name = ? COLLATE NOCASE",
             (cleaned,),
         ).fetchone()
         if row is None:

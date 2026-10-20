@@ -21,6 +21,10 @@ class ProjectExists(DaymarkError):
     """A project with that name is already stored."""
 
 
+class ProjectArchived(DaymarkError):
+    """The project is archived, so a new timer cannot start on it."""
+
+
 class EntryNotFound(DaymarkError):
     """The entry id is not in this database."""
 

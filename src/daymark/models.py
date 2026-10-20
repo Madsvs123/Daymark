@@ -9,6 +9,7 @@ class Project:
     id: int
     name: str
     created_at: datetime
+    archived: bool = False
 
 
 @dataclass(frozen=True)

@@ -67,6 +67,11 @@ def build_parser() -> argparse.ArgumentParser:
     rename = project_commands.add_parser("rename", help="Rename a project, keeping its history")
     rename.add_argument("old", help="Current name")
     rename.add_argument("new", help="New name")
+    archive = project_commands.add_parser(
+        "archive",
+        help="Hide a project from start while keeping its history",
+    )
+    archive.add_argument("name", help="Project name")
     project_commands.add_parser("list", help="List projects")
 
     start = commands.add_parser("start", help="Start the timer")
@@ -215,6 +220,10 @@ def command_project(store: Daymark, args: argparse.Namespace) -> int:
     if args.project_cmd == "rename":
         project = store.rename_project(args.old, args.new)
         print(f"Renamed project to '{project.name}'.")
+        return 0
+    if args.project_cmd == "archive":
+        project = store.archive_project(args.name)
+        print(f"Archived '{project.name}'. It stays in reports and is hidden from start.")
         return 0
     projects = store.list_projects()
     if not projects:
