@@ -66,6 +66,32 @@ def test_split_rejects_edges(app):
         app.split_entry(running.id, 1)
 
 
+def test_note_command_sets_and_clears_text(tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv("DAYMARK_DB", str(tmp_path / "daymark.db"))
+    assert main(["init"]) == 0
+    assert main(["project", "add", "writing"]) == 0
+    assert (
+        main(
+            [
+                "log",
+                "writing",
+                "--start",
+                "2026-10-20 09:00",
+                "--duration",
+                "30m",
+            ]
+        )
+        == 0
+    )
+    capsys.readouterr()
+    assert main(["note", "1", "rewrote", "the", "opening"]) == 0
+    assert "Note on entry 1: rewrote the opening" in capsys.readouterr().out
+    assert main(["note", "1", "--clear"]) == 0
+    assert "Note on entry 1: (none)" in capsys.readouterr().out
+    assert main(["note", "1"]) == 1
+    assert "note text" in capsys.readouterr().err
+
+
 def test_split_cli(tmp_path, monkeypatch, capsys):
     monkeypatch.setenv("DAYMARK_DB", str(tmp_path / "daymark.db"))
     assert main(["init"]) == 0

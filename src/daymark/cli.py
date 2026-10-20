@@ -139,6 +139,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Minutes after the start, where the second entry begins",
     )
 
+    note = commands.add_parser("note", help="Set the note text on an entry")
+    note.add_argument("entry_id", type=int, help="Entry id from a report")
+    note.add_argument("text", nargs="*", help="Note text")
+    note.add_argument("--clear", action="store_true", help="Remove the note")
+
     tag = commands.add_parser("tag", help="Add or remove tags on an entry")
     tag_commands = tag.add_subparsers(dest="tag_cmd", required=True)
     tag_add = tag_commands.add_parser("add", help="Attach tags")
@@ -233,6 +238,8 @@ def execute(args: argparse.Namespace) -> int:
             return command_delete(store, args)
         if args.command == "split":
             return command_split(store, args)
+        if args.command == "note":
+            return command_note(store, args)
         if args.command == "tag":
             return command_tag(store, args)
         if args.command == "report":
@@ -403,6 +410,21 @@ def command_edit(store: Daymark, args: argparse.Namespace) -> int:
     )
     print(f"Updated entry {entry.id}.")
     print(format_entry(entry))
+    return 0
+
+
+def command_note(store: Daymark, args: argparse.Namespace) -> int:
+    if args.clear and args.text:
+        raise DaymarkError("Use either note text or --clear.")
+    if args.clear:
+        text = ""
+    elif not args.text:
+        raise DaymarkError("Provide the note text, or pass --clear.")
+    else:
+        text = " ".join(args.text)
+    entry = store.edit(args.entry_id, note=text)
+    shown = entry.note or "(none)"
+    print(f"Note on entry {entry.id}: {shown}")
     return 0
 
 

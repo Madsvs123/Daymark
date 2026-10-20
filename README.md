@@ -141,6 +141,8 @@ Tag lines count an entry once for each of its tags. Project totals and the week 
 | `daymark edit ID [--project NAME] [--note TEXT] [--start TIME] [--end TIME]` | Change a saved entry |
 | `daymark delete ID` | Delete a finished entry |
 | `daymark split ID MINUTES` | Split a finished entry at a minute offset from its start |
+| `daymark note ID TEXT` | Set the note text on an entry |
+| `daymark note ID --clear` | Remove the note from an entry |
 | `daymark tag add ID TAG [TAG ...]` | Attach tags |
 | `daymark tag remove ID TAG [TAG ...]` | Detach tags |
 | `daymark tag rename OLD NEW` | Rename a tag on every entry that uses it |
