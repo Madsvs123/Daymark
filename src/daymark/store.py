@@ -394,7 +394,13 @@ class Daymark:
         entries = tuple(self.entries(start=start, end=end, completed_only=True))
         running = self._running_in_window(start, end)
         total = sum(entry.duration_seconds or 0 for entry in entries)
-        return DayReport(day=target, total_seconds=total, entries=entries, running=running)
+        return DayReport(
+            day=target,
+            total_seconds=total,
+            entries=entries,
+            running=running,
+            goal_minutes=self.daily_goal_minutes(),
+        )
 
     def report_week(self, day: date | None = None, tz: tzinfo | None = None) -> WeekReport:
         """Group completed entries that started during the Monday-Sunday week of `day`."""

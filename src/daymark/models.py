@@ -33,6 +33,7 @@ class DayReport:
     total_seconds: int
     entries: tuple[Entry, ...]
     running: Entry | None
+    goal_minutes: int | None = None
 
 
 @dataclass(frozen=True)

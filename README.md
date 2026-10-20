@@ -140,12 +140,13 @@ Tag lines count an entry once for each of its tags. Project totals and the week 
 
 `--duration` accepts `1h20m`, `90m`, `2h`, `45s`, and combinations such as `1h20m30s`. Spaces are ignored. Use it instead of `--end`.
 
-A daily goal is a minute target for your own completed time. It lives in the same SQLite file:
+A daily goal is a minute target for your own completed time. It lives in the same SQLite file. When today's finished entries reach that target, `daymark status` and `daymark report day` add one line. A timer that is still running does not count toward the goal.
 
 ```powershell
 daymark goal set 90
 daymark goal set 1h30m
 daymark goal show
+daymark status
 ```
 
 Only one timer can run at a time. Starting another project while one is open is refused until you stop or discard the open timer. A manual entry that crosses an existing block is refused too. Adjacent blocks are fine: one may end at the same minute the next one starts.

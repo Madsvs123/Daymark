@@ -7,6 +7,18 @@ from daymark.models import DayReport, Entry, ProjectReport, WeekReport
 from daymark.timeutil import format_duration, format_when
 
 
+def goal_met_line(today_seconds: int, goal_minutes: int | None) -> str | None:
+    """A single status line once completed time reaches the daily goal."""
+    if goal_minutes is None:
+        return None
+    goal_seconds = goal_minutes * 60
+    if today_seconds < goal_seconds:
+        return None
+    return (
+        f"Daily goal met: {format_duration(today_seconds)} of {format_duration(goal_seconds)}."
+    )
+
+
 def format_entry(entry: Entry) -> str:
     start = format_when(entry.started_at)
     if entry.ended_at is None:
@@ -31,6 +43,9 @@ def render_day(report: DayReport) -> str:
         lines.append("This timer is still running and is not included in the total.")
     lines.append("")
     lines.append(f"Total: {format_duration(report.total_seconds)}")
+    met = goal_met_line(report.total_seconds, report.goal_minutes)
+    if met is not None:
+        lines.append(met)
     return "\n".join(lines) + "\n"
 
 

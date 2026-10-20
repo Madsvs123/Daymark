@@ -8,7 +8,15 @@ from pathlib import Path
 
 from daymark import __version__
 from daymark.errors import DaymarkError
-from daymark.render import format_entry, render_csv, render_day, render_markdown, render_project, render_week
+from daymark.render import (
+    format_entry,
+    goal_met_line,
+    render_csv,
+    render_day,
+    render_markdown,
+    render_project,
+    render_week,
+)
 from daymark.store import Daymark, default_db_path
 from daymark.timeutil import (
     format_duration,
@@ -235,17 +243,24 @@ def command_status(store: Daymark) -> int:
     running = store.running()
     if running is None:
         print("No timer is running.")
-        return 0
-    elapsed = int((utcnow() - running.started_at).total_seconds())
-    if elapsed < 0:
-        elapsed = 0
-    print(f"Running: {running.project}")
-    print(f"Entry: {running.id}")
-    print(f"Started: {format_when(running.started_at)}")
-    print(f"Elapsed: {format_duration(elapsed)}")
-    print(f"Note: {running.note or '(none)'}")
-    print(f"Tags: {', '.join(running.tags) if running.tags else '(none)'}")
+    else:
+        elapsed = int((utcnow() - running.started_at).total_seconds())
+        if elapsed < 0:
+            elapsed = 0
+        print(f"Running: {running.project}")
+        print(f"Entry: {running.id}")
+        print(f"Started: {format_when(running.started_at)}")
+        print(f"Elapsed: {format_duration(elapsed)}")
+        print(f"Note: {running.note or '(none)'}")
+        print(f"Tags: {', '.join(running.tags) if running.tags else '(none)'}")
+    _print_goal_line(store)
     return 0
+
+
+def _print_goal_line(store: Daymark) -> None:
+    line = goal_met_line(store.report_day().total_seconds, store.daily_goal_minutes())
+    if line is not None:
+        print(line)
 
 
 def command_log(store: Daymark, args: argparse.Namespace) -> int:
