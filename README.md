@@ -145,6 +145,7 @@ Tag lines count an entry once for each of its tags. Project totals and the week 
 | `daymark tag rename OLD NEW` | Rename a tag on every entry that uses it |
 | `daymark report day [--date DATE]` | Entries and a total for one date |
 | `daymark report week [--date DATE]` | Project and tag totals for a week |
+| `daymark report month [--date DATE]` | Project totals for a calendar month |
 | `daymark report project NAME [--from DATE] [--to DATE]` | Entries for one project |
 | `daymark export csv [-o FILE]` | CSV of every entry |
 | `daymark export markdown [-o FILE]` | Markdown summary and table |

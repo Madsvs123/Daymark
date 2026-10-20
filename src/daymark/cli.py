@@ -14,6 +14,7 @@ from daymark.render import (
     render_csv,
     render_day,
     render_markdown,
+    render_month,
     render_project,
     render_week,
 )
@@ -156,6 +157,8 @@ def build_parser() -> argparse.ArgumentParser:
     day.add_argument("--date", help="YYYY-MM-DD. Defaults to today.")
     week = report_commands.add_parser("week", help="Group a Monday-Sunday week by project and tag")
     week.add_argument("--date", help="Any date in the week. Defaults to today.")
+    month = report_commands.add_parser("month", help="Totals for one calendar month")
+    month.add_argument("--date", help="YYYY-MM or YYYY-MM-DD. Defaults to this month.")
     project_report = report_commands.add_parser("project", help="Entries for one project")
     project_report.add_argument("name")
     project_report.add_argument("--from", dest="from_date", help="First date to include")
@@ -422,6 +425,13 @@ def command_tag(store: Daymark, args: argparse.Namespace) -> int:
     return 0
 
 
+def _parse_month(text: str):
+    raw = text.strip()
+    if len(raw) == 7 and raw[4] == "-":
+        raw = f"{raw}-01"
+    return parse_user_date(raw)
+
+
 def command_report(store: Daymark, args: argparse.Namespace) -> int:
     if args.report_cmd == "day":
         day = parse_user_date(args.date) if args.date else None
@@ -430,6 +440,10 @@ def command_report(store: Daymark, args: argparse.Namespace) -> int:
     if args.report_cmd == "week":
         day = parse_user_date(args.date) if args.date else None
         print(render_week(store.report_week(day)), end="")
+        return 0
+    if args.report_cmd == "month":
+        day = _parse_month(args.date) if args.date else None
+        print(render_month(store.report_month(day)), end="")
         return 0
     start = parse_user_date(args.from_date) if args.from_date else None
     end = parse_user_date(args.to_date) if args.to_date else None

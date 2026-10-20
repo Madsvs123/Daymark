@@ -15,10 +15,11 @@ from daymark.errors import (
     ProjectNotFound,
     TimerAlreadyRunning,
 )
-from daymark.models import DayReport, Entry, Pomodoro, Project, ProjectReport, WeekReport
+from daymark.models import DayReport, Entry, MonthReport, Pomodoro, Project, ProjectReport, WeekReport
 from daymark.timeutil import (
     day_window,
     ensure_utc,
+    month_window,
     intervals_overlap,
     iso,
     local_timezone,
@@ -671,6 +672,26 @@ class Daymark:
             by_project=by_project,
             by_tag=by_tag,
             by_project_tag=by_project_tag,
+            entries=entries,
+        )
+
+    def report_month(self, day: date | None = None, tz: tzinfo | None = None) -> MonthReport:
+        """Completed entries that started during the calendar month of `day`."""
+        zone = tz or local_timezone()
+        anchor = day or datetime.now(zone).date()
+        start, end, start_date, end_date = month_window(anchor, zone)
+        entries = tuple(self.entries(start=start, end=end, completed_only=True))
+        by_project: dict[str, int] = {}
+        total = 0
+        for entry in entries:
+            seconds = entry.duration_seconds or 0
+            total += seconds
+            by_project[entry.project] = by_project.get(entry.project, 0) + seconds
+        return MonthReport(
+            start_date=start_date,
+            end_date=end_date,
+            total_seconds=total,
+            by_project=by_project,
             entries=entries,
         )
 

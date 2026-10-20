@@ -61,6 +61,15 @@ class Pomodoro:
 
 
 @dataclass(frozen=True)
+class MonthReport:
+    start_date: date
+    end_date: date
+    total_seconds: int
+    by_project: dict[str, int]
+    entries: tuple[Entry, ...]
+
+
+@dataclass(frozen=True)
 class ProjectReport:
     project: str
     total_seconds: int

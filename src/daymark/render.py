@@ -3,7 +3,7 @@
 import csv
 import io
 
-from daymark.models import DayReport, Entry, ProjectReport, WeekReport
+from daymark.models import DayReport, Entry, MonthReport, ProjectReport, WeekReport
 from daymark.timeutil import format_duration, format_when
 
 
@@ -78,6 +78,22 @@ def render_week(report: WeekReport) -> str:
         "Tag lines count an entry once for each of its tags. "
         "Project totals and the week total count each entry once."
     )
+    return "\n".join(lines) + "\n"
+
+
+def render_month(report: MonthReport) -> str:
+    lines = [
+        f"Month of {report.start_date.isoformat()} to {report.end_date.isoformat()}",
+        "",
+        "By project",
+    ]
+    if not report.entries:
+        lines.append("  No completed entries.")
+    for project in sorted(report.by_project, key=str.lower):
+        lines.append(f"  {project}: {format_duration(report.by_project[project])}")
+    lines.append("")
+    lines.append(f"Entries: {len(report.entries)}")
+    lines.append(f"Month total: {format_duration(report.total_seconds)}")
     return "\n".join(lines) + "\n"
 
 

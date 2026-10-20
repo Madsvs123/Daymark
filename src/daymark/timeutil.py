@@ -123,6 +123,19 @@ def day_window(day: date, tz: tzinfo) -> tuple[datetime, datetime]:
     return start.replace(microsecond=0), end.replace(microsecond=0)
 
 
+def month_window(day: date, tz: tzinfo) -> tuple[datetime, datetime, date, date]:
+    """Calendar month that contains `day`, in `tz`."""
+    start_date = date(day.year, day.month, 1)
+    if day.month == 12:
+        next_month = date(day.year + 1, 1, 1)
+    else:
+        next_month = date(day.year, day.month + 1, 1)
+    end_date = next_month - timedelta(days=1)
+    start, _ = day_window(start_date, tz)
+    _, end = day_window(end_date, tz)
+    return start, end, start_date, end_date
+
+
 def week_window(day: date, tz: tzinfo) -> tuple[datetime, datetime, date, date]:
     """Monday-Sunday week that contains `day`, in `tz`."""
     monday = day - timedelta(days=day.weekday())
