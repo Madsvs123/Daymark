@@ -203,6 +203,7 @@ class Daymark:
                     "INSERT INTO open_timer (id, entry_id) VALUES (1, ?)",
                     (entry_id,),
                 )
+                self._conn.execute("DELETE FROM pomodoro WHERE phase = 'break'")
         except sqlite3.IntegrityError as exc:
             raise TimerAlreadyRunning(
                 "A timer is already running. Stop it before starting another."
@@ -264,6 +265,40 @@ class Daymark:
                 (iso(entry.started_at), FOCUS_SECONDS, entry.id),
             )
         return entry
+
+    def begin_break(self, *, at: datetime | None = None) -> Pomodoro:
+        """Stop the focus entry and record a fixed 5 minute break."""
+        state = self.pomodoro()
+        if state is None or state.phase != "focus":
+            raise DaymarkError(
+                "No focus session is running. Start one with `daymark pomodoro start`."
+            )
+        now = ensure_utc(at) if at is not None else utcnow()
+        if now <= state.started_at:
+            now = state.started_at + timedelta(seconds=1)
+        self.stop(at=now)
+        with self._conn:
+            self._conn.execute("DELETE FROM pomodoro")
+            self._conn.execute(
+                """
+                INSERT INTO pomodoro (id, phase, started_at, planned_seconds, entry_id)
+                VALUES (1, 'break', ?, ?, NULL)
+                """,
+                (iso(now), BREAK_SECONDS),
+            )
+        started = self.pomodoro()
+        if started is None:
+            raise DaymarkError("The break could not be saved.")
+        return started
+
+    def finish_pomodoro(self) -> None:
+        state = self.pomodoro()
+        if state is None:
+            raise DaymarkError("No pomodoro is running.")
+        if state.phase == "focus":
+            raise DaymarkError("A focus is still running. Use `daymark pomodoro break` or `daymark stop`.")
+        with self._conn:
+            self._conn.execute("DELETE FROM pomodoro")
 
     def pomodoro(self) -> Pomodoro | None:
         row = self._conn.execute(

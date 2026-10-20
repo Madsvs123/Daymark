@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 from daymark.cli import main
-from daymark.errors import TimerAlreadyRunning
+from daymark.errors import DaymarkError, TimerAlreadyRunning
 from daymark.store import BREAK_SECONDS, FOCUS_SECONDS
 
 
@@ -50,6 +50,52 @@ def test_stop_clears_the_focus(app):
     assert stopped.duration_seconds == 600
     assert app.pomodoro() is None
     assert app.running() is None
+
+
+def test_break_is_five_minutes_and_stops_the_focus(app):
+    app.add_project("writing")
+    started = utc(2026, 10, 20, 9, 0)
+    app.start_pomodoro("writing", at=started)
+    state = app.begin_break(at=started + timedelta(minutes=25))
+    assert state.phase == "break"
+    assert state.planned_seconds == BREAK_SECONDS
+    assert state.entry_id is None
+    assert state.remaining_seconds(started + timedelta(minutes=25)) == BREAK_SECONDS
+    assert app.running() is None
+    saved = app.entries()
+    assert len(saved) == 1
+    assert saved[0].duration_seconds == 25 * 60
+    app.finish_pomodoro()
+    assert app.pomodoro() is None
+
+
+def test_break_requires_a_focus(app):
+    with pytest.raises(DaymarkError, match="No focus"):
+        app.begin_break()
+
+
+def test_done_refuses_an_open_focus(app):
+    app.add_project("writing")
+    app.start_pomodoro("writing", at=utc(2026, 10, 20, 9, 0))
+    with pytest.raises(DaymarkError, match="still running"):
+        app.finish_pomodoro()
+
+
+def test_pomodoro_break_cli(tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv("DAYMARK_DB", str(tmp_path / "daymark.db"))
+    assert main(["init"]) == 0
+    assert main(["project", "add", "writing"]) == 0
+    assert main(["pomodoro", "start", "writing"]) == 0
+    capsys.readouterr()
+    assert main(["pomodoro", "break"]) == 0
+    assert "Break started" in capsys.readouterr().out
+    assert main(["pomodoro", "status"]) == 0
+    assert "Break:" in capsys.readouterr().out
+    assert main(["status"]) == 0
+    assert "No timer is running." in capsys.readouterr().out
+    assert main(["pomodoro", "done"]) == 0
+    assert main(["pomodoro", "status"]) == 0
+    assert "No pomodoro is running." in capsys.readouterr().out
 
 
 def test_pomodoro_start_cli(tmp_path, monkeypatch, capsys):

@@ -130,6 +130,8 @@ Tag lines count an entry once for each of its tags. Project totals and the week 
 | `daymark goal clear` | Remove the daily goal |
 | `daymark pomodoro start PROJECT [--note TEXT] [--tag TAG]` | Start a fixed 25 minute focus |
 | `daymark pomodoro status` | Show the focus or break countdown |
+| `daymark pomodoro break` | Stop the focus and start a 5 minute break |
+| `daymark pomodoro done` | Clear the break |
 | `daymark log PROJECT --start TIME (--end TIME \| --duration DURATION) [--note TEXT] [--tag TAG]` | Record a finished block |
 | `daymark edit ID [--project NAME] [--note TEXT] [--start TIME] [--end TIME]` | Change a saved entry |
 | `daymark tag add ID TAG [TAG ...]` | Attach tags |
@@ -156,6 +158,8 @@ A pomodoro is the same local timer with a fixed length: 25 minutes of focus, the
 ```powershell
 daymark pomodoro start writing --note "chapter 2"
 daymark pomodoro status
+daymark pomodoro break
+daymark pomodoro done
 ```
 
 Only one timer can run at a time. Starting another project while one is open is refused until you stop or discard the open timer. A manual entry that crosses an existing block is refused too. Adjacent blocks are fine: one may end at the same minute the next one starts.

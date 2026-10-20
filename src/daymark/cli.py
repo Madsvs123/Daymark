@@ -98,6 +98,8 @@ def build_parser() -> argparse.ArgumentParser:
     pomodoro_start.add_argument("--note", default="", help="What you are doing")
     pomodoro_start.add_argument("--tag", action="append", dest="tags", help="Tag. Repeat for several.")
     pomodoro_commands.add_parser("status", help="Show the focus or break countdown")
+    pomodoro_commands.add_parser("break", help="Stop the focus and start a 5 minute break")
+    pomodoro_commands.add_parser("done", help="Clear the break")
 
     log = commands.add_parser("log", help="Record a manual entry")
     log.add_argument("project", help="Project the time belongs to")
@@ -258,6 +260,14 @@ def command_pomodoro(store: Daymark, args: argparse.Namespace) -> int:
         print(f"Started a 25 minute focus on {entry.project}.")
         print(format_entry(entry))
         print(f"Break after the focus is {BREAK_SECONDS // 60} minutes.")
+        return 0
+    if args.pomodoro_cmd == "break":
+        state = store.begin_break()
+        print(f"Break started. {format_duration(state.planned_seconds)} away from the next focus.")
+        return 0
+    if args.pomodoro_cmd == "done":
+        store.finish_pomodoro()
+        print("Pomodoro cleared.")
         return 0
     return command_pomodoro_status(store)
 
