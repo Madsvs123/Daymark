@@ -48,6 +48,18 @@ class WeekReport:
 
 
 @dataclass(frozen=True)
+class Pomodoro:
+    phase: str
+    started_at: datetime
+    planned_seconds: int
+    entry_id: int | None
+
+    def remaining_seconds(self, now: datetime) -> int:
+        elapsed = int((now - self.started_at).total_seconds())
+        return self.planned_seconds - elapsed
+
+
+@dataclass(frozen=True)
 class ProjectReport:
     project: str
     total_seconds: int

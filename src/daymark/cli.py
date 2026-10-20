@@ -17,7 +17,7 @@ from daymark.render import (
     render_project,
     render_week,
 )
-from daymark.store import Daymark, default_db_path
+from daymark.store import BREAK_SECONDS, FOCUS_SECONDS, Daymark, default_db_path
 from daymark.timeutil import (
     format_duration,
     format_when,
@@ -87,6 +87,17 @@ def build_parser() -> argparse.ArgumentParser:
     goal_set.add_argument("minutes", help="Whole minutes, or a duration such as 1h30m")
     goal_commands.add_parser("show", help="Show the daily goal")
     goal_commands.add_parser("clear", help="Remove the daily goal")
+
+    pomodoro = commands.add_parser(
+        "pomodoro",
+        help="Time a fixed 25 minute focus and a 5 minute break",
+    )
+    pomodoro_commands = pomodoro.add_subparsers(dest="pomodoro_cmd", required=True)
+    pomodoro_start = pomodoro_commands.add_parser("start", help="Start a 25 minute focus")
+    pomodoro_start.add_argument("project", help="Project to time")
+    pomodoro_start.add_argument("--note", default="", help="What you are doing")
+    pomodoro_start.add_argument("--tag", action="append", dest="tags", help="Tag. Repeat for several.")
+    pomodoro_commands.add_parser("status", help="Show the focus or break countdown")
 
     log = commands.add_parser("log", help="Record a manual entry")
     log.add_argument("project", help="Project the time belongs to")
@@ -176,6 +187,8 @@ def execute(args: argparse.Namespace) -> int:
             return command_status(store)
         if args.command == "goal":
             return command_goal(store, args)
+        if args.command == "pomodoro":
+            return command_pomodoro(store, args)
         if args.command == "log":
             return command_log(store, args)
         if args.command == "edit":
@@ -236,6 +249,36 @@ def command_goal(store: Daymark, args: argparse.Namespace) -> int:
         print("No daily goal is set.")
         return 0
     print(f"Daily goal: {format_duration(minutes * 60)}.")
+    return 0
+
+
+def command_pomodoro(store: Daymark, args: argparse.Namespace) -> int:
+    if args.pomodoro_cmd == "start":
+        entry = store.start_pomodoro(args.project, note=args.note, tags=args.tags)
+        print(f"Started a 25 minute focus on {entry.project}.")
+        print(format_entry(entry))
+        print(f"Break after the focus is {BREAK_SECONDS // 60} minutes.")
+        return 0
+    return command_pomodoro_status(store)
+
+
+def command_pomodoro_status(store: Daymark) -> int:
+    state = store.pomodoro()
+    if state is None:
+        print("No pomodoro is running.")
+        print(f"Focus is {FOCUS_SECONDS // 60} minutes and the break is {BREAK_SECONDS // 60} minutes.")
+        return 0
+    remaining = state.remaining_seconds(utcnow())
+    phase = "Focus" if state.phase == "focus" else "Break"
+    planned = format_duration(state.planned_seconds)
+    if remaining > 0:
+        print(f"{phase}: {format_duration(remaining)} left of {planned}.")
+    elif remaining == 0:
+        print(f"{phase} complete ({planned}).")
+    else:
+        print(f"{phase} complete ({planned}). Over by {format_duration(-remaining)}.")
+    if state.entry_id is not None:
+        print(format_entry(store.get_entry(state.entry_id)))
     return 0
 
 

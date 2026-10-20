@@ -14,7 +14,7 @@ from daymark.errors import (
     ProjectNotFound,
     TimerAlreadyRunning,
 )
-from daymark.models import DayReport, Entry, Project, ProjectReport, WeekReport
+from daymark.models import DayReport, Entry, Pomodoro, Project, ProjectReport, WeekReport
 from daymark.timeutil import (
     day_window,
     ensure_utc,
@@ -71,7 +71,19 @@ CREATE TABLE IF NOT EXISTS settings (
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL
 );
+
+-- One row, id 1, for the operator's current 25/5 pomodoro.
+CREATE TABLE IF NOT EXISTS pomodoro (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    phase TEXT NOT NULL CHECK (phase IN ('focus', 'break')),
+    started_at TEXT NOT NULL,
+    planned_seconds INTEGER NOT NULL,
+    entry_id INTEGER REFERENCES entries(id) ON DELETE SET NULL
+);
 """
+
+FOCUS_SECONDS = 25 * 60
+BREAK_SECONDS = 5 * 60
 
 
 def default_db_path() -> Path:
@@ -210,6 +222,7 @@ class Daymark:
         if discard:
             with self._conn:
                 self._conn.execute("DELETE FROM entries WHERE id = ?", (running.id,))
+                self._conn.execute("DELETE FROM pomodoro WHERE entry_id = ?", (running.id,))
             return None
         end = ensure_utc(at) if at is not None else utcnow()
         if at is None and end <= running.started_at:
@@ -228,7 +241,42 @@ class Daymark:
                 (new_note, iso(end), iso(utcnow()), running.id),
             )
             self._conn.execute("DELETE FROM open_timer WHERE entry_id = ?", (running.id,))
+            self._conn.execute("DELETE FROM pomodoro WHERE entry_id = ?", (running.id,))
         return self.get_entry(running.id)
+
+    def start_pomodoro(
+        self,
+        project: str,
+        *,
+        note: str = "",
+        tags: list[str] | None = None,
+        at: datetime | None = None,
+    ) -> Entry:
+        """Start the single timer as a 25 minute focus. The break is 5 minutes."""
+        entry = self.start(project, note=note, tags=tags, at=at)
+        with self._conn:
+            self._conn.execute("DELETE FROM pomodoro")
+            self._conn.execute(
+                """
+                INSERT INTO pomodoro (id, phase, started_at, planned_seconds, entry_id)
+                VALUES (1, 'focus', ?, ?, ?)
+                """,
+                (iso(entry.started_at), FOCUS_SECONDS, entry.id),
+            )
+        return entry
+
+    def pomodoro(self) -> Pomodoro | None:
+        row = self._conn.execute(
+            "SELECT phase, started_at, planned_seconds, entry_id FROM pomodoro WHERE id = 1"
+        ).fetchone()
+        if row is None:
+            return None
+        return Pomodoro(
+            phase=row["phase"],
+            started_at=parse_stored(row["started_at"]),
+            planned_seconds=int(row["planned_seconds"]),
+            entry_id=row["entry_id"],
+        )
 
     def running(self) -> Entry | None:
         rows = self._fetch_entries("WHERE e.ended_at IS NULL", ())
@@ -320,6 +368,7 @@ class Daymark:
             )
             if closing:
                 self._conn.execute("DELETE FROM open_timer WHERE entry_id = ?", (entry_id,))
+                self._conn.execute("DELETE FROM pomodoro WHERE entry_id = ?", (entry_id,))
         return self.get_entry(entry_id)
 
     def add_tags(self, entry_id: int, tags: list[str]) -> Entry:
