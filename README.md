@@ -68,6 +68,7 @@ If you forgot to start, write the block in afterward. Times without a timezone a
 
 ```powershell
 daymark log writing --start "2026-10-20 08:00" --end "2026-10-20 08:40" --note "planning" --tag planning
+daymark log writing --start "2026-10-20 09:00" --duration 1h20m --note "draft"
 ```
 
 Reports print entry ids. Use those ids to fix a note, move an entry, or retag it:
@@ -124,7 +125,7 @@ Tag lines count an entry once for each of its tags. Project totals and the week 
 | `daymark start PROJECT [--note TEXT] [--tag TAG]` | Start the single running timer |
 | `daymark stop [--note TEXT] [--discard]` | Stop the timer, or drop it |
 | `daymark status` | Show the open timer and how long it has run |
-| `daymark log PROJECT --start TIME --end TIME [--note TEXT] [--tag TAG]` | Record a finished block |
+| `daymark log PROJECT --start TIME (--end TIME \| --duration DURATION) [--note TEXT] [--tag TAG]` | Record a finished block |
 | `daymark edit ID [--project NAME] [--note TEXT] [--start TIME] [--end TIME]` | Change a saved entry |
 | `daymark tag add ID TAG [TAG ...]` | Attach tags |
 | `daymark tag remove ID TAG [TAG ...]` | Detach tags |
@@ -133,6 +134,8 @@ Tag lines count an entry once for each of its tags. Project totals and the week 
 | `daymark report project NAME [--from DATE] [--to DATE]` | Entries for one project |
 | `daymark export csv [-o FILE]` | CSV of every entry |
 | `daymark export markdown [-o FILE]` | Markdown summary and table |
+
+`--duration` accepts `1h20m`, `90m`, `2h`, `45s`, and combinations such as `1h20m30s`. Spaces are ignored. Use it instead of `--end`.
 
 Only one timer can run at a time. Starting another project while one is open is refused until you stop or discard the open timer. A manual entry that crosses an existing block is refused too. Adjacent blocks are fine: one may end at the same minute the next one starts.
 

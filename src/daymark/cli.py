@@ -3,13 +3,21 @@
 import argparse
 import os
 import sys
+from datetime import timedelta
 from pathlib import Path
 
 from daymark import __version__
 from daymark.errors import DaymarkError
 from daymark.render import format_entry, render_csv, render_day, render_markdown, render_project, render_week
 from daymark.store import Daymark, default_db_path
-from daymark.timeutil import format_duration, format_when, parse_user_date, parse_user_time, utcnow
+from daymark.timeutil import (
+    format_duration,
+    format_when,
+    parse_duration,
+    parse_user_date,
+    parse_user_time,
+    utcnow,
+)
 
 EPILOG = """
 examples:
@@ -18,7 +26,7 @@ examples:
   daymark start writing --note "chapter 2" --tag draft
   daymark status
   daymark stop
-  daymark log writing --start "2026-10-20 08:00" --end "2026-10-20 08:40" --note planning --tag planning
+  daymark log writing --start "2026-10-20 08:00" --duration 1h20m --note planning --tag planning
   daymark report day
   daymark report week
   daymark export csv --output week.csv
@@ -67,7 +75,8 @@ def build_parser() -> argparse.ArgumentParser:
     log = commands.add_parser("log", help="Record a manual entry")
     log.add_argument("project", help="Project the time belongs to")
     log.add_argument("--start", required=True, help="Start time, YYYY-MM-DD HH:MM")
-    log.add_argument("--end", required=True, help="End time, YYYY-MM-DD HH:MM")
+    log.add_argument("--end", help="End time, YYYY-MM-DD HH:MM")
+    log.add_argument("--duration", help="Length instead of --end, such as 1h20m or 90m")
     log.add_argument("--note", default="", help="What the time was for")
     log.add_argument("--tag", action="append", dest="tags", help="Tag. Repeat for several.")
 
@@ -213,10 +222,19 @@ def command_status(store: Daymark) -> int:
 
 
 def command_log(store: Daymark, args: argparse.Namespace) -> int:
+    if args.end and args.duration:
+        raise DaymarkError("Use either --end or --duration.")
+    if not args.end and not args.duration:
+        raise DaymarkError("Provide --end or --duration, for example 1h20m or 90m.")
+    started = parse_user_time(args.start)
+    if args.duration:
+        ended = started + timedelta(seconds=parse_duration(args.duration))
+    else:
+        ended = parse_user_time(args.end)
     entry = store.log(
         args.project,
-        parse_user_time(args.start),
-        parse_user_time(args.end),
+        started,
+        ended,
         note=args.note,
         tags=args.tags,
     )

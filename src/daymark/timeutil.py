@@ -6,6 +6,7 @@ from datetime import date, datetime, time, timedelta, timezone, tzinfo
 from daymark.errors import DaymarkError
 
 _TAG_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,39}$")
+_DURATION_RE = re.compile(r"^(?:(?P<hours>\d+)h)?(?:(?P<minutes>\d+)m)?(?:(?P<seconds>\d+)s)?$")
 _FAR_FUTURE = datetime(9999, 12, 31, tzinfo=timezone.utc)
 
 
@@ -57,6 +58,23 @@ def parse_user_time(text: str, tz: tzinfo | None = None) -> datetime:
     if parsed.tzinfo is None:
         parsed = parsed.replace(tzinfo=tz or local_timezone())
     return ensure_utc(parsed)
+
+
+def parse_duration(text: str) -> int:
+    """Return seconds for a duration such as `1h20m`, `90m`, or `45s`."""
+    raw = "".join(text.strip().lower().split())
+    if not raw:
+        raise DaymarkError("A duration is required.")
+    match = _DURATION_RE.fullmatch(raw)
+    if match is None or not any(match.group(part) for part in ("hours", "minutes", "seconds")):
+        raise DaymarkError(f"Could not read duration '{text}'. Use a value like 1h20m or 90m.")
+    hours = int(match.group("hours") or 0)
+    minutes = int(match.group("minutes") or 0)
+    seconds = int(match.group("seconds") or 0)
+    total = hours * 3600 + minutes * 60 + seconds
+    if total <= 0:
+        raise DaymarkError("A duration must be greater than zero.")
+    return total
 
 
 def parse_user_date(text: str) -> date:
