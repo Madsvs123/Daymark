@@ -49,9 +49,31 @@ def render_day(report: DayReport) -> str:
     return "\n".join(lines) + "\n"
 
 
+_SPARK_BLOCKS = "▁▂▃▄▅▆▇█"
+
+
+def sparkline(values: tuple[int, ...] | list[int]) -> str:
+    """One character per day. A dot is a day with no completed time."""
+    if not values:
+        return ""
+    peak = max(values)
+    if peak <= 0:
+        return "·" * len(values)
+    chars: list[str] = []
+    for value in values:
+        if value <= 0:
+            chars.append("·")
+            continue
+        index = round((value / peak) * (len(_SPARK_BLOCKS) - 1))
+        chars.append(_SPARK_BLOCKS[index])
+    return "".join(chars)
+
+
 def render_week(report: WeekReport) -> str:
+    days = report.daily_seconds or (0, 0, 0, 0, 0, 0, 0)
     lines = [
         f"Week of {report.start_date.isoformat()} to {report.end_date.isoformat()}",
+        f"Daily sparkline (Mon-Sun): {sparkline(days)}",
         "",
         "By project and tag",
     ]

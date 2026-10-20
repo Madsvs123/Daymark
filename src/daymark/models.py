@@ -46,6 +46,7 @@ class WeekReport:
     by_tag: dict[str, int]
     by_project_tag: dict[str, dict[str, int]]
     entries: tuple[Entry, ...]
+    daily_seconds: tuple[int, ...] = ()
 
 
 @dataclass(frozen=True)

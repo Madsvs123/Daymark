@@ -97,12 +97,13 @@ An entry belongs to the day and week in which it started. A timer that is still 
 
 ## How a week report adds up
 
-`daymark report week` groups completed time by project, and under each project by tag. It also prints a tag summary and one week total.
+`daymark report week` groups completed time by project, and under each project by tag. It also prints a tag summary, a text sparkline of the seven days (Monday through Sunday), and one week total. A dot in the sparkline is a day with no completed time. The tallest block is the busiest day that week.
 
-A block with two tags is listed under each tag. The project total and the week total count that block once, so the tag lines can add up to more than the week total. The report says so under the total. Untagged time is listed as `(untagged)`.
+A block with two tags is listed under each tag. The project total and the week total count that block once, so the tag lines can add up to more than the week total. The report says so under the total. Untagged time is listed as `(untagged)`. In the sample below, the block started on Friday, so that day is the tallest mark.
 
 ```
 Week of 2026-10-19 to 2026-10-25
+Daily sparkline (Mon-Sun): ····█··
 
 By project and tag
   writing

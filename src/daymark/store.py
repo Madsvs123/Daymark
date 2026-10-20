@@ -655,6 +655,7 @@ class Daymark:
         by_project: dict[str, int] = {}
         by_tag: dict[str, int] = {}
         by_project_tag: dict[str, dict[str, int]] = {}
+        daily = [0, 0, 0, 0, 0, 0, 0]
         total = 0
         for entry in entries:
             seconds = entry.duration_seconds or 0
@@ -665,6 +666,10 @@ class Daymark:
             for tag in tag_names:
                 by_tag[tag] = by_tag.get(tag, 0) + seconds
                 bucket[tag] = bucket.get(tag, 0) + seconds
+            local_day = entry.started_at.astimezone(zone).date()
+            index = (local_day - start_date).days
+            if 0 <= index <= 6:
+                daily[index] += seconds
         return WeekReport(
             start_date=start_date,
             end_date=end_date,
@@ -673,6 +678,7 @@ class Daymark:
             by_tag=by_tag,
             by_project_tag=by_project_tag,
             entries=entries,
+            daily_seconds=tuple(daily),
         )
 
     def report_month(self, day: date | None = None, tz: tzinfo | None = None) -> MonthReport:
