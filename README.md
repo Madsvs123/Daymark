@@ -128,6 +128,7 @@ Tag lines count an entry once for each of its tags. Project totals and the week 
 | `daymark project unarchive NAME` | Make an archived project startable again |
 | `daymark project list [--all]` | List projects you can start, or every project |
 | `daymark start PROJECT [--note TEXT] [--tag TAG]` | Start the single running timer |
+| `daymark continue [--note TEXT] [--tag TAG]` | Start the timer on the most recent project |
 | `daymark stop [--note TEXT] [--discard]` | Stop the timer, or drop it |
 | `daymark status` | Show the open timer and how long it has run |
 | `daymark goal set MINUTES` | Set a daily goal, as minutes or a duration such as `1h30m` |

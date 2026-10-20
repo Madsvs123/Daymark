@@ -368,6 +368,35 @@ class Daymark:
             ) from exc
         return self.get_entry(entry_id)
 
+    def latest_project_name(self) -> str:
+        row = self._conn.execute(
+            """
+            SELECT p.name, p.archived
+            FROM entries e
+            JOIN projects p ON p.id = e.project_id
+            ORDER BY e.started_at DESC, e.id DESC
+            LIMIT 1
+            """
+        ).fetchone()
+        if row is None:
+            raise DaymarkError("No entries yet. Start a project by name.")
+        if row["archived"]:
+            raise DaymarkError(
+                f"The most recent project '{row['name']}' is archived. "
+                "Unarchive it or start a different project."
+            )
+        return row["name"]
+
+    def continue_latest(
+        self,
+        *,
+        note: str = "",
+        tags: list[str] | None = None,
+        at: datetime | None = None,
+    ) -> Entry:
+        """Start the timer on the project of the most recently started entry."""
+        return self.start(self.latest_project_name(), note=note, tags=tags, at=at)
+
     def stop(
         self,
         *,

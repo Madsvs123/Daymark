@@ -83,6 +83,10 @@ def build_parser() -> argparse.ArgumentParser:
     start.add_argument("--note", default="", help="What you are doing")
     start.add_argument("--tag", action="append", dest="tags", help="Tag. Repeat for several.")
 
+    cont = commands.add_parser("continue", help="Start the timer on your most recent project")
+    cont.add_argument("--note", default="", help="What you are doing")
+    cont.add_argument("--tag", action="append", dest="tags", help="Tag. Repeat for several.")
+
     stop = commands.add_parser("stop", help="Stop the running timer")
     stop.add_argument("--note", help="Replace the note on the open entry")
     stop.add_argument(
@@ -222,6 +226,8 @@ def execute(args: argparse.Namespace) -> int:
             return command_project(store, args)
         if args.command == "start":
             return command_start(store, args)
+        if args.command == "continue":
+            return command_continue(store, args)
         if args.command == "stop":
             return command_stop(store, args)
         if args.command == "status":
@@ -283,6 +289,13 @@ def command_project(store: Daymark, args: argparse.Namespace) -> int:
 def command_start(store: Daymark, args: argparse.Namespace) -> int:
     entry = store.start(args.project, note=args.note, tags=args.tags)
     print(f"Started {entry.project} at {format_when(entry.started_at)}.")
+    print(format_entry(entry))
+    return 0
+
+
+def command_continue(store: Daymark, args: argparse.Namespace) -> int:
+    entry = store.continue_latest(note=args.note, tags=args.tags)
+    print(f"Continued {entry.project} at {format_when(entry.started_at)}.")
     print(format_entry(entry))
     return 0
 
