@@ -484,6 +484,47 @@ class Daymark:
             self._conn.execute("DELETE FROM entries WHERE id = ?", (entry_id,))
         return entry
 
+    def split_entry(self, entry_id: int, minutes: int) -> tuple[Entry, Entry]:
+        """Split a finished entry so the second piece starts `minutes` after the first."""
+        if minutes < 1:
+            raise DaymarkError("The split offset must be at least 1 minute.")
+        entry = self.get_entry(entry_id)
+        if entry.ended_at is None:
+            raise DaymarkError("Stop the timer before splitting that entry.")
+        duration = entry.duration_seconds or 0
+        offset = minutes * 60
+        if offset >= duration:
+            raise DaymarkError(
+                f"Entry {entry_id} is {max(duration // 60, 0)} minutes long. "
+                "Choose an earlier minute offset."
+            )
+        split_at = entry.started_at + timedelta(seconds=offset)
+        project_row = self._require_project(entry.project)
+        stamp = iso(utcnow())
+        with self._conn:
+            self._conn.execute(
+                "UPDATE entries SET ended_at = ?, updated_at = ? WHERE id = ?",
+                (iso(split_at), stamp, entry_id),
+            )
+            cursor = self._conn.execute(
+                """
+                INSERT INTO entries
+                    (project_id, note, started_at, ended_at, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    project_row["id"],
+                    entry.note,
+                    iso(split_at),
+                    iso(entry.ended_at),
+                    stamp,
+                    stamp,
+                ),
+            )
+            new_id = int(cursor.lastrowid)
+            self._attach_tags(new_id, entry.tags)
+        return self.get_entry(entry_id), self.get_entry(new_id)
+
     def add_tags(self, entry_id: int, tags: list[str]) -> Entry:
         self.get_entry(entry_id)
         clean = normalize_tags(tags)

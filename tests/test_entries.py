@@ -34,6 +34,63 @@ def test_delete_refuses_the_running_timer(app):
     assert app.running() is not None
 
 
+def test_split_at_minute_offset(app):
+    app.add_project("writing")
+    entry = app.log(
+        "writing",
+        utc(2026, 10, 20, 9, 0),
+        utc(2026, 10, 20, 10, 30),
+        note="chapter",
+        tags=["draft"],
+    )
+    first, second = app.split_entry(entry.id, 40)
+    assert first.id == entry.id
+    assert first.duration_seconds == 40 * 60
+    assert second.duration_seconds == 50 * 60
+    assert first.ended_at == second.started_at
+    assert first.note == second.note == "chapter"
+    assert first.tags == second.tags == ("draft",)
+    assert first.project == second.project == "writing"
+    assert app.report_project("writing").total_seconds == 90 * 60
+
+
+def test_split_rejects_edges(app):
+    app.add_project("writing")
+    entry = app.log("writing", utc(2026, 10, 20, 9, 0), utc(2026, 10, 20, 10, 0))
+    with pytest.raises(DaymarkError, match="at least 1 minute"):
+        app.split_entry(entry.id, 0)
+    with pytest.raises(DaymarkError, match="earlier"):
+        app.split_entry(entry.id, 60)
+    running = app.start("writing", at=utc(2026, 10, 20, 12, 0))
+    with pytest.raises(DaymarkError, match="Stop the timer"):
+        app.split_entry(running.id, 1)
+
+
+def test_split_cli(tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv("DAYMARK_DB", str(tmp_path / "daymark.db"))
+    assert main(["init"]) == 0
+    assert main(["project", "add", "writing"]) == 0
+    assert (
+        main(
+            [
+                "log",
+                "writing",
+                "--start",
+                "2026-10-20 09:00",
+                "--duration",
+                "90m",
+            ]
+        )
+        == 0
+    )
+    capsys.readouterr()
+    assert main(["split", "1", "30"]) == 0
+    out = capsys.readouterr().out
+    assert "Split entry 1 at 30 minutes." in out
+    assert "0h 30m" in out
+    assert "1h 00m" in out
+
+
 def test_delete_cli(tmp_path, monkeypatch, capsys):
     monkeypatch.setenv("DAYMARK_DB", str(tmp_path / "daymark.db"))
     assert main(["init"]) == 0

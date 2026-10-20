@@ -130,6 +130,14 @@ def build_parser() -> argparse.ArgumentParser:
     delete = commands.add_parser("delete", help="Delete a finished entry")
     delete.add_argument("entry_id", type=int, help="Entry id from a report")
 
+    split = commands.add_parser("split", help="Split a finished entry at a minute offset")
+    split.add_argument("entry_id", type=int, help="Entry id from a report")
+    split.add_argument(
+        "minutes",
+        type=int,
+        help="Minutes after the start, where the second entry begins",
+    )
+
     tag = commands.add_parser("tag", help="Add or remove tags on an entry")
     tag_commands = tag.add_subparsers(dest="tag_cmd", required=True)
     tag_add = tag_commands.add_parser("add", help="Attach tags")
@@ -211,6 +219,8 @@ def execute(args: argparse.Namespace) -> int:
             return command_edit(store, args)
         if args.command == "delete":
             return command_delete(store, args)
+        if args.command == "split":
+            return command_split(store, args)
         if args.command == "tag":
             return command_tag(store, args)
         if args.command == "report":
@@ -377,6 +387,14 @@ def command_edit(store: Daymark, args: argparse.Namespace) -> int:
     )
     print(f"Updated entry {entry.id}.")
     print(format_entry(entry))
+    return 0
+
+
+def command_split(store: Daymark, args: argparse.Namespace) -> int:
+    first, second = store.split_entry(args.entry_id, args.minutes)
+    print(f"Split entry {first.id} at {args.minutes} minutes.")
+    print(format_entry(first))
+    print(format_entry(second))
     return 0
 
 
