@@ -187,6 +187,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     restore = commands.add_parser("restore", help="Replace the SQLite database from a backup")
     restore.add_argument("--from", dest="source", required=True, help="Backup file to restore")
+
+    commands.add_parser("doctor", help="Check the local database for inconsistencies")
     return parser
 
 
@@ -258,6 +260,8 @@ def execute(args: argparse.Namespace) -> int:
             return command_backup(store, args)
         if args.command == "restore":
             return command_restore(store, args)
+        if args.command == "doctor":
+            return command_doctor(store)
     raise DaymarkError(f"Unknown command '{args.command}'.")
 
 
@@ -565,6 +569,18 @@ def command_backup(store: Daymark, args: argparse.Namespace) -> int:
     path = store.backup_to(args.output)
     print(f"Backed up the database to {path}")
     return 0
+
+
+def command_doctor(store: Daymark) -> int:
+    problems = store.doctor()
+    print(f"Database: {store.db_path}")
+    if not problems:
+        print("daymark doctor: ok")
+        return 0
+    for problem in problems:
+        print(f"problem: {problem}")
+    print("daymark doctor: found problems")
+    return 1
 
 
 def command_restore(store: Daymark, args: argparse.Namespace) -> int:

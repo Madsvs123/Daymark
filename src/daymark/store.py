@@ -121,6 +121,52 @@ class Daymark:
             )
             self._conn.commit()
 
+    def doctor(self) -> list[str]:
+        """Check this database. An empty list means it looks consistent."""
+        problems: list[str] = []
+        integrity = self._conn.execute("PRAGMA integrity_check").fetchall()
+        if len(integrity) != 1 or integrity[0][0] != "ok":
+            problems.append("integrity check failed")
+        present = {
+            row[0]
+            for row in self._conn.execute(
+                "SELECT name FROM sqlite_master WHERE type = 'table'"
+            ).fetchall()
+        }
+        for table in (
+            "projects",
+            "entries",
+            "tags",
+            "entry_tags",
+            "open_timer",
+            "settings",
+            "pomodoro",
+        ):
+            if table not in present:
+                problems.append(f"missing table {table}")
+        columns = {row[1] for row in self._conn.execute("PRAGMA table_info(projects)")}
+        if "archived" not in columns:
+            problems.append("projects.archived is missing")
+        foreign_keys = self._conn.execute("PRAGMA foreign_keys").fetchone()
+        if foreign_keys is None or foreign_keys[0] != 1:
+            problems.append("foreign keys are off")
+        if self._conn.execute("PRAGMA foreign_key_check").fetchall():
+            problems.append("foreign key check found problems")
+        open_entries = self._conn.execute(
+            "SELECT id FROM entries WHERE ended_at IS NULL"
+        ).fetchall()
+        open_timer = self._conn.execute("SELECT entry_id FROM open_timer").fetchall()
+        if len(open_entries) > 1:
+            problems.append(f"{len(open_entries)} entries are open")
+        open_ids = {row["id"] for row in open_entries}
+        timer_ids = {row["entry_id"] for row in open_timer}
+        if open_ids != timer_ids:
+            problems.append("the open timer does not match the open entry")
+        state = self.pomodoro()
+        if state is not None and state.phase == "focus" and state.entry_id not in open_ids:
+            problems.append("the pomodoro focus does not match the open timer")
+        return problems
+
     def backup_to(self, dest: Path | str) -> Path:
         """Write a consistent copy of this database with SQLite's backup API."""
         target_path = Path(dest).expanduser()

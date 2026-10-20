@@ -155,6 +155,7 @@ Tag lines count an entry once for each of its tags. Project totals and the week 
 | `daymark export markdown [-o FILE]` | Markdown summary and table |
 | `daymark backup -o FILE` | Copy the SQLite file to a new path |
 | `daymark restore --from FILE` | Replace the current database with a backup |
+| `daymark doctor` | Check the local database and report problems |
 
 `--duration` accepts `1h20m`, `90m`, `2h`, `45s`, and combinations such as `1h20m30s`. Spaces are ignored. Use it instead of `--end`.
 
