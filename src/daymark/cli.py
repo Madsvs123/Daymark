@@ -64,6 +64,9 @@ def build_parser() -> argparse.ArgumentParser:
     project_commands = project.add_subparsers(dest="project_cmd", required=True)
     add = project_commands.add_parser("add", help="Add a project")
     add.add_argument("name", help="Project name")
+    rename = project_commands.add_parser("rename", help="Rename a project, keeping its history")
+    rename.add_argument("old", help="Current name")
+    rename.add_argument("new", help="New name")
     project_commands.add_parser("list", help="List projects")
 
     start = commands.add_parser("start", help="Start the timer")
@@ -208,6 +211,10 @@ def command_project(store: Daymark, args: argparse.Namespace) -> int:
     if args.project_cmd == "add":
         project = store.add_project(args.name)
         print(f"Added project '{project.name}'.")
+        return 0
+    if args.project_cmd == "rename":
+        project = store.rename_project(args.old, args.new)
+        print(f"Renamed project to '{project.name}'.")
         return 0
     projects = store.list_projects()
     if not projects:

@@ -46,6 +46,7 @@ Create a database once, add the projects you actually switch between, and start 
 ```powershell
 daymark init
 daymark project add writing
+daymark project rename writing drafts
 daymark project add reading
 daymark start writing --note "chapter 2" --tag draft
 ```
@@ -121,6 +122,7 @@ Tag lines count an entry once for each of its tags. Project totals and the week 
 | --- | --- |
 | `daymark init [--here \| --path FILE]` | Create the SQLite database |
 | `daymark project add NAME` | Add a project |
+| `daymark project rename OLD NEW` | Rename a project without moving its history |
 | `daymark project list` | List projects |
 | `daymark start PROJECT [--note TEXT] [--tag TAG]` | Start the single running timer |
 | `daymark stop [--note TEXT] [--discard]` | Stop the timer, or drop it |

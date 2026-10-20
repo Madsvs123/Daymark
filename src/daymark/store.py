@@ -158,6 +158,27 @@ class Daymark:
             raise ProjectExists(f"Project '{cleaned}' already exists.") from exc
         return self._project(int(cursor.lastrowid))
 
+    def rename_project(self, old: str, new: str) -> Project:
+        row = self._require_project(old)
+        cleaned = normalize_project_name(new)
+        if cleaned.lower() == row["name"].lower():
+            if cleaned != row["name"]:
+                with self._conn:
+                    self._conn.execute(
+                        "UPDATE projects SET name = ? WHERE id = ?",
+                        (cleaned, row["id"]),
+                    )
+            return self._project(int(row["id"]))
+        try:
+            with self._conn:
+                self._conn.execute(
+                    "UPDATE projects SET name = ? WHERE id = ?",
+                    (cleaned, row["id"]),
+                )
+        except sqlite3.IntegrityError as exc:
+            raise ProjectExists(f"Project '{cleaned}' already exists.") from exc
+        return self._project(int(row["id"]))
+
     def list_projects(self) -> list[Project]:
         rows = self._conn.execute(
             "SELECT id, name, created_at FROM projects ORDER BY name COLLATE NOCASE"
